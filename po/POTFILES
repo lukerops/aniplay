@@ -1,0 +1,7 @@
+data/com.github.lucasscvvieira.aniplayer.desktop.in
+data/com.github.lucasscvvieira.aniplayer.appdata.xml.in
+data/com.github.lucasscvvieira.aniplayer.gschema.xml
+data/ui/window.ui
+aniplayer/main.py
+aniplayer/window.py
+
