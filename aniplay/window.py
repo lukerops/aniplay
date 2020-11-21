@@ -15,134 +15,136 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import gi
-import cloudscraper
-import json
-import re
-from collections import OrderedDict
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk
+from gi.repository import GLib
 
+from aniplay.library import Library
 from aniplay.player import Player
+
+class PageNotFound(Exception):
+    pass
 
 @Gtk.Template(resource_path='/com/github/lucasscvvieira/aniplay/ui/window.ui')
 class AniplayWindow(Gtk.ApplicationWindow):
     __gtype_name__ = 'AniplayWindow'
 
+    # adjustment
+    player_video_position_adjustment = Gtk.Template.Child()
+    player_volume_adjustment = Gtk.Template.Child()
+
     # Headerbar
-    headerbar = Gtk.Template.Child('headerbar')
-    headerbar_revealer = Gtk.Template.Child('headerbar_revealer')
-    headerbar_fullscreen_button = Gtk.Template.Child('headerbar_fullscreen_button')
-    headerbar_volume_button = Gtk.Template.Child('headerbar_volume_button')
-    headerbar_left_button = Gtk.Template.Child('headerbar_left_button')
+    headerbar = Gtk.Template.Child()
+    headerbar_title_stack = Gtk.Template.Child()
+    headerbar_menu_button = Gtk.Template.Child()
+    headerbar_left_button = Gtk.Template.Child()
+    headerbar_left_button_image = Gtk.Template.Child()
 
-    # Player headerbar
-    headerbar_player_title = Gtk.Template.Child('headerbar_player_title')
-    headerbar_player_subtitle = Gtk.Template.Child('headerbar_player_subtitle')
+    # Library Headerbar
+    headerbar_library_title_label = Gtk.Template.Child()
+    headerbar_library_subtitle_label = Gtk.Template.Child()
 
-    page_stack = Gtk.Template.Child('page_stack')
-    main_page = Gtk.Template.Child('main_page')
-    main_button = Gtk.Template.Child('main_button')
-    url = Gtk.Template.Child('url')
+    # Player Headerbar
+    headerbar_player_fullscreen_button = Gtk.Template.Child()
+    headerbar_player_volume_button = Gtk.Template.Child()
+    headerbar_player_title_label = Gtk.Template.Child()
+    headerbar_player_subtitle_label = Gtk.Template.Child()
 
-    player_volume_adjustment = Gtk.Template.Child('player_volume_adjustment')
-    player_video_position_adjustment = Gtk.Template.Child('player_video_position_adjustment')
-    player_actionbar_position_scale = Gtk.Template.Child('player_actionbar_position_scale')
+    # Notification
+    notification_overlay = Gtk.Template.Child()
+    notification_revealer = Gtk.Template.Child()
+    notification_label = Gtk.Template.Child()
 
+    # Page
+    page_stack = Gtk.Template.Child()
 
-    player_video_area = Gtk.Template.Child('player_video_area')
-    player_video_area_button_revealer = Gtk.Template.Child('player_video_area_button_revealer')
-    player_play_button = Gtk.Template.Child('player_play_button')
-    player_play_button_image = Gtk.Template.Child('player_play_button_image')
+    # Library Page
+    library_url_entry = Gtk.Template.Child()
+    library_play_button = Gtk.Template.Child()
 
-
-    # ActionBar
-    player_action_bar = Gtk.Template.Child('player_action_bar')
-    #player_actionbar_volume_button = Gtk.Template.Child('player_actionbar_volume_button')
-    player_actionbar_duration_label = Gtk.Template.Child('player_actionbar_duration_label')
-    player_actionbar_position_label = Gtk.Template.Child('player_actionbar_position_label')
-    player_volume_adjustment = Gtk.Template.Child('player_volume_adjustment')
-    player_action_bar_revealer = Gtk.Template.Child('player_action_bar_revealer')
-    player_action_bar_play_button = Gtk.Template.Child('player_action_bar_play_button')
-    player_action_bar_play_button_image = Gtk.Template.Child('player_action_bar_play_button_image')
+    # Player Page
+    player_overlay = Gtk.Template.Child()
+    player_headerbar_revealer = Gtk.Template.Child()
+    # Player Mid
+    player_mid_revealer = Gtk.Template.Child()
+    player_play_button = Gtk.Template.Child()
+    player_play_button_image = Gtk.Template.Child()
+    # Player Bottom
+    player_bottom_revealer = Gtk.Template.Child()
+    player_position_label = Gtk.Template.Child()
+    player_seekbar = Gtk.Template.Child()
+    player_duration_label = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._page_order = [(self.main_page, None)]
 
-        self.headerbar_volume_button.hide()
+        self._page_order = []
+        self._pages = {
+            'library': Library(self),
+            'player': Player(self),
+        }
 
-        #Window
-        self.main_button.connect('clicked', self._on_button_clicked)
+        self.headerbar_player_volume_button.hide()
 
-    def go_back(self):
-        page, widget = self._page_order.pop(-1)
-        widget.quit()
-        self.page_stack.set_visible_child(self._page_order[-1][0])
+        # initiate in libraby page
+        self.go_page('library')
 
-    def go_page(self, page, widget):
-        self._page_order.append((page, widget))
-        self.page_stack.set_visible_child(page)
+    def get_page(self, name):
+        if name not in self._pages.keys():
+            raise PageNotFound
+        return self._pages[name]
 
-    def _on_button_clicked(self, widget):
-        url = self.url.get_text()
-        video_info = get_video_info(url)
-        if len(video_info) == 0:
-            exit(1)
-        player = Player(self)
-        player.play(video_info['url'], video_info['title'].title(), video_info['subtitle'].title())
-        self.go_page(self.player_video_area, player)
-
-def get_video_info(url):
-    session = cloudscraper.create_scraper()
-    session.headers = headers = OrderedDict(
-    [
-        ('Host', 'www.crunchyroll.com'),
-        ('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; WOW64) Gecko/20100101 Firefox/60'),
-        ('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'),
-        ('Accept-Language', 'en,en-US;q=0.9'),
-        ('Accept-Encoding', 'gzip, deflate, br'),
-    ])
-    req = session.get(url)
-    if req.status_code != 200:
-        exit(1)
-
-    info = dict()
-    trailer = False
-
-    r = re.search(
-        r'vilos.config.media = (.*);',
-        req.text
-    )
-
-    if r.groups:
-        j = json.loads(r.group(1))
-        for stream in j['streams']:
-            if 'm3u8' in stream['url'] and stream['hardsub_lang'] == 'ptBR':
-                if stream['format'] == 'vo_adaptive_hls':
-                    info['url'] = stream['url']
-                    break
-                if stream['format'] == 'trailer_hls':
-                    info['url'] = stream['url']
-                    trailer = True
-                    break
-
-    r = re.findall(
-        r'<h4 id="showmedia_about_episode_num">\s*<a href=".*" class="text-link">(.*)<\/a>\s*<\/h4>\s*<h4>\s*(.*)\s*(.*)?<\/h4>|<h4 id="showmedia_about_name" class="strong">&ldquo;(.*)&rdquo;<\/h4>',
-        req.text
-    )
-    if len(r) == 2:
-        info['title'] = r[0][0]
-        if trailer:
-            info['title'] += ' (Trailer)'
-
-        epi = r[0][1]
-        if epi[-1] == ',':
-            epi = epi[:-1]
-
-        if len(r[0][2]) > 0:
-            info['subtitle'] = '{} - {} - {}'.format(epi, r[0][2], r[1][3])
+    def go_page(self, page_name):
+        try:
+            page = self.get_page(page_name)
+        except PageNotFound:
+            self.show_notification("Page not found!")
         else:
-            info['subtitle'] = '{} - {}'.format(epi, r[1][3])
-        return info
-    
+            try:
+                prev_page_name = self._page_order[-1]
+                prev_page = self.get_page(prev_page_name)
+            except PageNotFound:
+                exit(1)
+            except IndexError:
+                pass
+            else:
+                prev_page.close_page()
+
+            self._page_order.append(page_name)
+            page.prepare_page()
+            self.headerbar_title_stack.set_visible_child_name(page_name)
+            self.page_stack.set_visible_child_name(page_name)
+
+    def back_page(self):
+        page_name = self._page_order.pop(-1)
+
+        # close previous page
+        try:
+            page = self.get_page(page_name)
+            page.close_page()
+        except PageNotFound:
+            exit(1)
+
+        # open page
+        try:
+            prev_page_name = self._page_order[-1]
+            prev_page = self.get_page(prev_page_name)
+        except PageNotFound:
+            exit(1)
+        except IndexError:
+            self.show_notification("Root page can't go back!")
+            self._page_order.append(page_name)
+        else:
+            prev_page.prepare_page()
+            self.headerbar_title_stack.set_visible_child_name(prev_page_name)
+            self.page_stack.set_visible_child_name(prev_page_name)
+
+    def show_notification(self, string, interval=5):
+        self.notification_label.set_text(string)
+        self.notification_revealer.set_reveal_child(True)
+        GLib.timeout_add_seconds(interval, self.hide_notification)
+
+    def hide_notification(self):
+        self.notification_revealer.set_reveal_child(False)
+        return False # disable timeout

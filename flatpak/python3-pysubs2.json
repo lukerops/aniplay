@@ -1,0 +1,14 @@
+{
+    "name": "python3-pysubs2",
+    "buildsystem": "simple",
+    "build-commands": [
+        "pip3 install --exists-action=i --no-index --find-links=\"file://${PWD}\" --prefix=${FLATPAK_DEST} \"pysubs2\""
+    ],
+    "sources": [
+        {
+            "type": "file",
+            "url": "https://files.pythonhosted.org/packages/a9/31/ba5fa1da56104f0bdf635a0be48831d5057d3ca12e902574e0838a5074e7/pysubs2-1.0.0-py3-none-any.whl",
+            "sha256": "825630c6316e6819fac342b2f020177b01cbe9b5a3252c4c6a0de4612c91c4a8"
+        }
+    ]
+}

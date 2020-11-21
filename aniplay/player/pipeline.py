@@ -17,6 +17,9 @@ import gi
 
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
+
+gi.require_version('GstVideo', '1.0')
+from gi.repository import GstVideo
 from gi.repository import GObject
 from gi.repository import GLib
 
@@ -49,9 +52,9 @@ class Pipeline(GObject.Object):
         GObject.Object.__init__(self)
         Gst.init(None)
 
-        self._pipeline = Gst.ElementFactory.make("playbin", "playbin")
+        self._pipeline = Gst.ElementFactory.make('playbin3', 'playbin')
 
-        self.gstbin = Gst.Bin.new("my-bin")
+        self.gstbin = Gst.Bin.new('my-bin')
 
         #videosink = Gst.ElementFactory.make("autovideosink")
         #self.gstbin.add(videosink)
@@ -73,10 +76,6 @@ class Pipeline(GObject.Object):
         bus.add_signal_watch()
         bus.connect("message", self._on_message)
 
-    def __del__(self):
-        print("del pipeline")
-        del self._pipeline
-
     def set_state(self, state):
         res = self._pipeline.set_state(state)
         if res == Gst.StateChangeReturn.FAILURE:
@@ -87,8 +86,10 @@ class Pipeline(GObject.Object):
     def is_playing(self):
         return self._pipeline.get_state(1)[1] == Gst.State.PLAYING
 
-    def set_uri(self, uri):
+    def set_uri(self, uri, suburi):
         self._pipeline.set_property('uri', uri)
+        self._pipeline.set_property('suburi', suburi)
+        self._pipeline.set_property('subtitle-font-desc', 'DejaVu Sans, bold')
 
         self._volume = self._pipeline.get_property('volume')
         self.emit('volume', self._volume)
@@ -125,7 +126,7 @@ class Pipeline(GObject.Object):
         ns = position * Gst.SECOND
 
         if not self._seeking:
-            res = self._pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, ns)
+            res = self._pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, ns)
             if res:
                 self._seeking = True
 
